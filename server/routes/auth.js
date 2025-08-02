@@ -1,8 +1,11 @@
 const express = require('express')
 const router = express.Router()
+<<<<<<< HEAD
 const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
 
 const User = require('../models/User')
 const { generateToken } = require('../utils/jwtUtils')
@@ -14,6 +17,7 @@ const {
   validateResetPassword
 } = require('../middleware/validation')
 
+<<<<<<< HEAD
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -46,6 +50,8 @@ const upload = multer({
   }
 })
 
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
 // @route   POST /api/auth/register
 // @desc    Register a new user (simplified for FixIt)
 // @access  Public
@@ -264,6 +270,7 @@ router.get('/me', protect, async (req, res) => {
   }
 })
 
+<<<<<<< HEAD
 // @route   PUT /api/auth/profile/picture
 // @desc    Upload profile picture
 // @access  Private
@@ -519,6 +526,8 @@ router.put('/preferences', protect, async (req, res) => {
   }
 });
 
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
 // @route   POST /api/auth/logout
 // @desc    Logout user (client-side token removal)
 // @access  Private

@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters long'],
     select: false
   },
+<<<<<<< HEAD
   profilePicture: {
     type: String,
     default: null
@@ -43,6 +44,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
   isEmailVerified: {
     type: Boolean,
     default: true // Auto-verify for FixIt
@@ -59,6 +62,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
+<<<<<<< HEAD
   },
   preferences: {
     notifications: {
@@ -78,6 +82,8 @@ const userSchema = new mongoose.Schema({
     location: {
       radius: { type: Number, default: 5, min: 1, max: 50 }
     }
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
   }
 }, {
   timestamps: true
@@ -111,6 +117,7 @@ userSchema.methods.toJSON = function() {
   return user
 }
 
+<<<<<<< HEAD
 // Virtual for member since (formatted date)
 userSchema.virtual('memberSince').get(function() {
   return this.createdAt ? this.createdAt.toLocaleDateString('en-US', {
@@ -141,4 +148,6 @@ userSchema.virtual('memberSinceRelative').get(function() {
   }
 })
 
+=======
+>>>>>>> d2575956032c14c6cd0435f3da67d7280a4a277c
 module.exports = mongoose.model('User', userSchema) 
