@@ -1,30 +1,27 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { Eye, EyeOff, Mail, Lock, AlertCircle, Sparkles, Shield, Users } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import toast from 'react-hot-toast';
 
-const LoginPage = () => {
+const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { register: registerUser } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { register, handleSubmit, formState: { errors } } = useForm();
-
-  const from = location.state?.from?.pathname || '/';
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
 
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
-      const result = await login(data.email, data.password);
+      const result = await registerUser(data);
       if (result.success) {
-        navigate(from, { replace: true });
+        navigate('/onboarding');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Registration error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -35,10 +32,10 @@ const LoginPage = () => {
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full opacity-20"
+          className="absolute -top-40 -left-40 w-80 h-80 bg-blue-200 rounded-full opacity-20"
           animate={{
             scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
+            rotate: [0, -180, -360],
           }}
           transition={{
             duration: 20,
@@ -47,10 +44,10 @@ const LoginPage = () => {
           }}
         />
         <motion.div
-          className="absolute -bottom-40 -left-40 w-60 h-60 bg-indigo-200 rounded-full opacity-20"
+          className="absolute -bottom-40 -right-40 w-60 h-60 bg-indigo-200 rounded-full opacity-20"
           animate={{
             scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
+            rotate: [-360, -180, 0],
           }}
           transition={{
             duration: 15,
@@ -61,7 +58,7 @@ const LoginPage = () => {
       </div>
 
       <div className="relative z-10 w-full max-w-6xl flex items-center justify-center gap-8">
-        {/* Features Preview - Left Side */}
+        {/* Benefits Preview - Left Side */}
         <motion.div
           className="hidden lg:flex flex-col space-y-6 w-80"
           initial={{ opacity: 0, x: -50 }}
@@ -73,9 +70,11 @@ const LoginPage = () => {
             whileHover={{ y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Users className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="font-semibold text-gray-900 text-lg mb-2">Community Driven</h3>
-            <p className="text-gray-600 text-sm">Join thousands of active users reporting and tracking civic issues in their communities.</p>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-blue-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 text-lg mb-2">Free Forever</h3>
+            <p className="text-gray-600 text-sm">No hidden fees or subscription costs. Join the community completely free.</p>
           </motion.div>
           
           <motion.div
@@ -83,9 +82,11 @@ const LoginPage = () => {
             whileHover={{ y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Shield className="w-12 h-12 text-green-600 mx-auto mb-4" />
-            <h3 className="font-semibold text-gray-900 text-lg mb-2">Secure & Private</h3>
-            <p className="text-gray-600 text-sm">Your data is protected with enterprise-grade security and privacy controls.</p>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <ArrowRight className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 text-lg mb-2">Quick Setup</h3>
+            <p className="text-gray-600 text-sm">Get started in minutes with our streamlined registration process.</p>
           </motion.div>
           
           <motion.div
@@ -93,41 +94,43 @@ const LoginPage = () => {
             whileHover={{ y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Sparkles className="w-12 h-12 text-purple-600 mx-auto mb-4" />
-            <h3 className="font-semibold text-gray-900 text-lg mb-2">Real-time Updates</h3>
-            <p className="text-gray-600 text-sm">Track progress instantly with live updates and notifications on issue resolution.</p>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="w-8 h-8 text-purple-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 text-lg mb-2">Instant Access</h3>
+            <p className="text-gray-600 text-sm">Start reporting issues immediately after creating your account.</p>
           </motion.div>
         </motion.div>
 
-        {/* Login Form - Right Side */}
+        {/* Register Form - Right Side */}
         <motion.div
-          className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 w-full max-w-md"
+          className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-white/20 w-full max-w-md"
           initial={{ opacity: 0, y: 30, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           {/* Header */}
           <motion.div
-            className="text-center mb-8"
+            className="text-center mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.5 }}
           >
             <motion.div
-              className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
-              whileHover={{ scale: 1.05, rotate: 5 }}
+              className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
+              whileHover={{ scale: 1.05, rotate: -5 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Sparkles className="text-white" size={32} />
+              <Sparkles className="text-white" size={28} />
             </motion.div>
             
             <motion.h1
-              className="text-3xl font-bold text-gray-900 mb-2"
+              className="text-2xl font-bold text-gray-900 mb-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
             >
-              Welcome Back to FixIt
+              Join FixIt Community
             </motion.h1>
             
             <motion.p
@@ -136,24 +139,65 @@ const LoginPage = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              Sign in to continue improving your community
+              Create your account and start making a difference
             </motion.p>
           </motion.div>
 
           {/* Form */}
           <motion.form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6"
+            className="space-y-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            {/* Email */}
+            {/* Name */}
             <motion.div
               className="form-group"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.5 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Full Name
+              </label>
+              <div className="relative">
+                <User size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  {...register('fullName', {
+                    required: 'Name is required',
+                    minLength: {
+                      value: 2,
+                      message: 'Name must be at least 2 characters'
+                    }
+                  })}
+                  className="w-full px-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  placeholder="Enter your full name"
+                />
+              </div>
+              <AnimatePresence>
+                {errors.fullName && (
+                  <motion.div
+                    className="flex items-center space-x-2 mt-2 text-red-600 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AlertCircle size={14} />
+                    <span>{errors.fullName.message}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Email */}
+            <motion.div
+              className="form-group"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
             >
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Email Address
@@ -194,7 +238,7 @@ const LoginPage = () => {
               className="form-group"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
             >
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Password
@@ -211,7 +255,7 @@ const LoginPage = () => {
                     }
                   })}
                   className="w-full px-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                 />
                 <motion.button
                   type="button"
@@ -239,27 +283,92 @@ const LoginPage = () => {
               </AnimatePresence>
             </motion.div>
 
-            {/* Remember Me & Forgot Password */}
+            {/* Confirm Password */}
             <motion.div
-              className="flex items-center justify-between"
+              className="form-group"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  {...register('confirmPassword', {
+                    required: 'Please confirm your password',
+                    validate: value => value === watch('password') || 'Passwords do not match'
+                  })}
+                  className="w-full px-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  placeholder="Confirm your password"
+                />
+                <motion.button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </motion.button>
+              </div>
+              <AnimatePresence>
+                {errors.confirmPassword && (
+                  <motion.div
+                    className="flex items-center space-x-2 mt-2 text-red-600 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AlertCircle size={14} />
+                    <span>{errors.confirmPassword.message}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Terms */}
+            <motion.div
+              className="flex items-start space-x-3"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
+              transition={{ delay: 1.0, duration: 0.5 }}
             >
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                />
-                <span className="text-sm text-gray-700">Remember me</span>
+              <input
+                type="checkbox"
+                {...register('acceptTerms', {
+                  required: 'You must accept the terms and conditions'
+                })}
+                className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
+              />
+              <label className="text-sm text-gray-700 leading-relaxed">
+                I agree to the{' '}
+                <Link to="/terms" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link to="/privacy" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                  Privacy Policy
+                </Link>
               </label>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-              >
-                Forgot password?
-              </Link>
             </motion.div>
+            <AnimatePresence>
+              {errors.acceptTerms && (
+                <motion.div
+                  className="flex items-center space-x-2 text-red-600 text-sm"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <AlertCircle size={14} />
+                  <span>{errors.acceptTerms.message}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Submit Button */}
             <motion.button
@@ -270,7 +379,7 @@ const LoginPage = () => {
               whileTap={{ scale: 0.98 }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9, duration: 0.5 }}
+              transition={{ delay: 1.1, duration: 0.5 }}
             >
               <AnimatePresence mode="wait">
                 {isLoading ? (
@@ -282,7 +391,7 @@ const LoginPage = () => {
                     exit={{ opacity: 0 }}
                   >
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
+                    <span>Creating account...</span>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -292,28 +401,28 @@ const LoginPage = () => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <Shield size={18} />
-                    <span>Sign In</span>
+                    <CheckCircle size={18} />
+                    <span>Create Account</span>
                   </motion.div>
                 )}
               </AnimatePresence>
             </motion.button>
           </motion.form>
 
-          {/* Sign Up Link */}
+          {/* Sign In Link */}
           <motion.div
-            className="text-center mt-8"
+            className="text-center mt-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.0, duration: 0.5 }}
+            transition={{ delay: 1.2, duration: 0.5 }}
           >
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Already have an account?{' '}
               <Link
-                to="/register"
+                to="/login"
                 className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
               >
-                Sign up
+                Sign in
               </Link>
             </p>
           </motion.div>
@@ -323,4 +432,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage; 
+export default RegisterPage; 

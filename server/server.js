@@ -3,9 +3,13 @@ const mongoose = require('mongoose')
 const cors = require('cors')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
+const path = require('path')
 require('dotenv').config()
 
 const authRoutes = require('./routes/auth')
+const issueRoutes = require('./routes/issues')
+const notificationRoutes = require('./routes/notifications')
+const adminRoutes = require('./routes/admin')
 const { errorHandler } = require('./middleware/errorHandler')
 
 const app = express()
@@ -21,22 +25,46 @@ app.use(cors({
   credentials: true
 }))
 
-// Rate limiting
+// Rate limiting - More lenient in development
 const limiter = rateLimit({
   windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000, // 15 minutes
-  max: process.env.RATE_LIMIT_MAX || 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' 
+    ? (process.env.RATE_LIMIT_MAX || 1000) 
+    : 5000, // Much higher limit for development
   message: {
     error: 'Too many requests from this IP, please try again later.'
+  },
+  skip: (req) => {
+    // Skip rate limiting for health checks and static files
+    return req.path === '/api/health' || req.path.startsWith('/uploads/');
   }
 })
 app.use('/api/', limiter)
+
+// More lenient rate limiting for issues endpoint in development
+if (process.env.NODE_ENV !== 'production') {
+  const issuesLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 500, // Increased to 500 requests per minute for development
+    message: {
+      error: 'Too many requests to issues endpoint, please try again later.'
+    }
+  })
+  app.use('/api/issues', issuesLimiter)
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
+// Static file serving for uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/issues', issueRoutes)
+app.use('/api/notifications', notificationRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

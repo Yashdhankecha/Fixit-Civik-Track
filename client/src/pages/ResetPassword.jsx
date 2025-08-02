@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi'
+import api from '../utils/api'
 
 const ResetPassword = () => {
   const [step, setStep] = useState(1) // 1: email form, 2: OTP form, 3: new password form
@@ -72,7 +73,11 @@ const ResetPassword = () => {
       
       if (result.success) {
         toast.success(result.message)
-        navigate('/signin')
+        // Clear any existing auth state and navigate
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        delete api.defaults.headers.common['Authorization'];
+        window.location.href = '/login';
       } else {
         toast.error(result.error)
       }

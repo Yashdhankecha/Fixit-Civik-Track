@@ -2,11 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from './contexts/AuthContext';
 
 // Context Providers
 import { AuthProvider } from './contexts/AuthContext';
 import { LocationProvider } from './contexts/LocationContext';
 import { IssueProvider } from './contexts/IssueContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Layout Components
 import Layout from './components/Layout';
@@ -18,6 +20,8 @@ import MapPage from './pages/MapPage';
 import ReportIssuePage from './pages/ReportIssuePage';
 import IssueDetailPage from './pages/IssueDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+import NotificationPage from './pages/NotificationPage';
 import AdminDashboard from './pages/AdminDashboard';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -79,12 +83,18 @@ const LoadingSpinner = () => (
 );
 
 function App() {
+  // Custom Fallback Component
+  const CustomFallback = () => {
+    const { isAdmin } = useAuth();
+    return <Navigate to={isAdmin ? "/admin" : "/"} replace />;
+  };
   return (
     <ErrorBoundary>
       <Router>
         <AuthProvider>
           <LocationProvider>
             <IssueProvider>
+              <NotificationProvider>
               <div className="App">
                 <AnimatePresence mode="wait">
                   <Routes>
@@ -96,47 +106,7 @@ function App() {
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/privacy" element={<PrivacyPage />} />
                     
-                    {/* Protected Routes */}
-                    <Route path="/" element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <HomePage />
-                        </Layout>
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/map" element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <MapPage />
-                        </Layout>
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/report" element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <ReportIssuePage />
-                        </Layout>
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/issue/:id" element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <IssueDetailPage />
-                        </Layout>
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/profile" element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <ProfilePage />
-                        </Layout>
-                      </ProtectedRoute>
-                    } />
-                    
+                    {/* Admin Routes */}
                     <Route path="/admin" element={
                       <ProtectedRoute adminOnly>
                         <Layout>
@@ -145,8 +115,65 @@ function App() {
                       </ProtectedRoute>
                     } />
                     
+                    {/* User Routes - Only accessible to non-admin users */}
+                    <Route path="/" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <HomePage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/map" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <MapPage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/report" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <ReportIssuePage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/issue/:id" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <IssueDetailPage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/profile" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <ProfilePage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/notifications" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <NotificationPage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/settings" element={
+                      <ProtectedRoute userOnly>
+                        <Layout>
+                          <SettingsPage />
+                        </Layout>
+                      </ProtectedRoute>
+                    } />
+                    
                     {/* Fallback */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="*" element={<CustomFallback />} />
                   </Routes>
                 </AnimatePresence>
                 
@@ -177,11 +204,12 @@ function App() {
                   }}
                 />
               </div>
+                          </NotificationProvider>
             </IssueProvider>
           </LocationProvider>
         </AuthProvider>
-      </Router>
-    </ErrorBoundary>
+        </Router>
+      </ErrorBoundary>
   );
 }
 
