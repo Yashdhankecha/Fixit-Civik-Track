@@ -1,1 +1,447 @@
- 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-secondary-200;
+  }
+  
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-secondary-50 text-secondary-900 font-normal;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+/* Professional Theme Components */
+@layer components {
+  /* Enhanced Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-secondary-100 text-secondary-700 hover:bg-secondary-200 focus:ring-secondary-500 border border-secondary-200;
+  }
+  
+  .btn-outline {
+    @apply btn border-2 border-secondary-300 text-secondary-700 hover:bg-secondary-50 focus:ring-secondary-500 hover:border-secondary-400;
+  }
+  
+  .btn-danger {
+    @apply btn bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-success {
+    @apply btn bg-success-600 text-white hover:bg-success-700 focus:ring-success-500 shadow-lg hover:shadow-xl;
+  }
+
+  /* Enhanced Cards */
+  .card {
+    @apply bg-white rounded-2xl shadow-xl border border-secondary-100 backdrop-blur-sm;
+  }
+  
+  .card-hover {
+    @apply card hover:shadow-2xl hover:-translate-y-1 transition-all duration-300;
+  }
+
+  /* Enhanced Inputs */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-secondary-200 bg-white text-secondary-900 placeholder-secondary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-200;
+  }
+  
+  .input-error {
+    @apply input border-danger-300 focus:border-danger-500 focus:ring-danger-500/20;
+  }
+
+  /* Enhanced Badges */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-700;
+  }
+  
+  .badge-secondary {
+    @apply badge bg-secondary-100 text-secondary-700;
+  }
+  
+  .badge-success {
+    @apply badge bg-success-100 text-success-700;
+  }
+  
+  .badge-warning {
+    @apply badge bg-warning-100 text-warning-700;
+  }
+  
+  .badge-danger {
+    @apply badge bg-danger-100 text-danger-700;
+  }
+
+  /* Issue Status Badges */
+  .status-new {
+    @apply badge bg-blue-100 text-blue-700;
+  }
+  
+  .status-in-progress {
+    @apply badge bg-yellow-100 text-yellow-700;
+  }
+  
+  .status-resolved {
+    @apply badge bg-green-100 text-green-700;
+  }
+
+  /* Issue Category Badges */
+  .category-roads {
+    @apply badge bg-blue-100 text-blue-700;
+  }
+  
+  .category-lighting {
+    @apply badge bg-yellow-100 text-yellow-700;
+  }
+  
+  .category-water {
+    @apply badge bg-cyan-100 text-cyan-700;
+  }
+  
+  .category-cleanliness {
+    @apply badge bg-green-100 text-green-700;
+  }
+  
+  .category-safety {
+    @apply badge bg-red-100 text-red-700;
+  }
+  
+  .category-obstructions {
+    @apply badge bg-purple-100 text-purple-700;
+  }
+
+  /* Enhanced Navigation */
+  .nav-link {
+    @apply flex items-center px-4 py-2 rounded-xl text-secondary-700 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200;
+  }
+  
+  .nav-link-active {
+    @apply nav-link text-primary-600 bg-primary-50 font-medium;
+  }
+
+  /* Enhanced Sidebar */
+  .sidebar {
+    @apply fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l border-secondary-200 transform translate-x-full transition-transform duration-300 ease-in-out;
+  }
+  
+  .sidebar-open {
+    @apply sidebar translate-x-0;
+  }
+
+  /* Enhanced Modals */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+  
+  .modal-content {
+    @apply card max-w-md w-full max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Enhanced Loading Spinner */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-secondary-200 border-t-primary-600;
+  }
+
+  /* Enhanced Glass Effect */
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  /* Enhanced Map Container */
+  .map-container {
+    @apply rounded-2xl overflow-hidden shadow-xl border border-secondary-200;
+  }
+
+  /* Enhanced Issue Pins */
+  .issue-pin {
+    @apply w-8 h-8 rounded-full border-2 border-white shadow-lg cursor-pointer transition-all duration-200 hover:scale-110;
+  }
+
+  /* Enhanced Status Indicators */
+  .status-indicator {
+    @apply w-3 h-3 rounded-full;
+  }
+  
+  .status-indicator-new {
+    @apply status-indicator bg-blue-500;
+  }
+  
+  .status-indicator-progress {
+    @apply status-indicator bg-yellow-500;
+  }
+  
+  .status-indicator-resolved {
+    @apply status-indicator bg-green-500;
+  }
+
+  /* Enhanced Form Groups */
+  .form-group {
+    @apply space-y-2;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-secondary-700;
+  }
+  
+  .form-error {
+    @apply text-sm text-danger-600 flex items-center space-x-1;
+  }
+
+  /* Enhanced Dropzone */
+  .dropzone {
+    @apply border-2 border-dashed border-secondary-300 rounded-2xl p-8 text-center hover:border-primary-400 hover:bg-primary-50 transition-all duration-200 cursor-pointer;
+  }
+  
+  .dropzone-active {
+    @apply dropzone border-primary-500 bg-primary-50;
+  }
+
+  /* Enhanced Scrollbars */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.secondary.300') transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: theme('colors.secondary.300');
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.secondary.400');
+  }
+}
+
+/* Enhanced Animations */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.5s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+  
+  .animate-bounce-in {
+    animation: bounceIn 0.6s ease-out;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Enhanced Text Utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .text-shadow-lg {
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Leaflet Map Enhancements */
+.leaflet-container {
+  @apply rounded-2xl overflow-hidden;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl shadow-lg;
+}
+
+.leaflet-popup-content {
+  @apply p-4;
+}
+
+.leaflet-popup-tip {
+  @apply shadow-lg;
+}
+
+/* Enhanced Image Upload */
+.image-upload-preview {
+  @apply relative group overflow-hidden rounded-xl;
+}
+
+.image-upload-preview img {
+  @apply w-full h-full object-cover transition-transform duration-300 group-hover:scale-105;
+}
+
+.image-upload-overlay {
+  @apply absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center;
+}
+
+/* Professional Gradients */
+.gradient-primary {
+  @apply bg-gradient-to-br from-primary-500 to-primary-700;
+}
+
+.gradient-secondary {
+  @apply bg-gradient-to-br from-secondary-500 to-secondary-700;
+}
+
+.gradient-success {
+  @apply bg-gradient-to-br from-success-500 to-success-700;
+}
+
+.gradient-warning {
+  @apply bg-gradient-to-br from-warning-500 to-warning-700;
+}
+
+.gradient-danger {
+  @apply bg-gradient-to-br from-danger-500 to-danger-700;
+}
+
+/* Enhanced Focus States */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+/* Professional Shadows */
+.shadow-soft {
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-medium {
+  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-strong {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 2px 10px -2px rgba(0, 0, 0, 0.05);
+} 
