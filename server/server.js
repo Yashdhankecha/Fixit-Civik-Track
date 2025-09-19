@@ -20,8 +20,11 @@ app.use(helmet())
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3001'],
+    ? [
+        process.env.FRONTEND_URL || 'https://your-fixit-app.netlify.app',
+        'https://your-custom-domain.com'
+      ] 
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'],
   credentials: true
 }))
 
@@ -71,7 +74,27 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'FixIt Server is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    renderUrl: process.env.RENDER_EXTERNAL_URL || 'Not set'
+  })
+})
+
+// Test endpoint for location queries
+app.get('/api/test/location', (req, res) => {
+  const { lat, lng, radius } = req.query;
+  
+  res.json({
+    success: true,
+    message: 'Location test endpoint working',
+    received: { lat, lng, radius },
+    parsed: {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng), 
+      radius: parseFloat(radius)
+    },
+    valid: !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng)) && !isNaN(parseFloat(radius))
   })
 })
 
@@ -87,20 +110,45 @@ app.use('*', (req, res) => {
 
 // Database connection - Using local MongoDB for FixIt
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fixit'
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('✅ Connected to FixIt MongoDB Database')
-  console.log(`📊 Database: ${MONGODB_URI}`)
-})
-.catch((err) => {
+
+// Set Mongoose options to handle strictPopulate
+mongoose.set('strictPopulate', false);
+
+// Check if MongoDB is available
+mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB connection error:', err)
   console.log('💡 Make sure MongoDB is running locally on port 27017')
   console.log('💡 Or set MONGODB_URI environment variable')
-  process.exit(1)
 })
+
+mongoose.connection.on('connected', () => {
+  console.log('✅ Connected to FixIt MongoDB Database')
+  console.log(`📊 Database: ${MONGODB_URI}`)
+})
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️  MongoDB disconnected')
+})
+
+// Attempt to connect to MongoDB with retry logic
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err)
+    console.log('💡 Make sure MongoDB is running locally on port 27017')
+    console.log('💡 Or set MONGODB_URI environment variable')
+    console.log('💡 Server will continue running but database features will be unavailable')
+    
+    // Retry connection every 30 seconds
+    setTimeout(connectDB, 30000)
+  }
+}
+
+connectDB()
 
 const PORT = process.env.PORT || 5000
 
@@ -108,6 +156,7 @@ app.listen(PORT, () => {
   console.log(`🚀 FixIt Server running on port ${PORT}`)
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
   console.log(`🔗 API URL: http://localhost:${PORT}/api`)
+  console.log(`📊 MongoDB Status: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}`)
 })
 
 // Graceful shutdown
@@ -117,4 +166,4 @@ process.on('SIGTERM', () => {
     console.log('MongoDB connection closed')
     process.exit(0)
   })
-}) 
+})

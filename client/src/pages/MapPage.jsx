@@ -30,7 +30,7 @@ import IssueDetailModal from '../components/IssueDetailModal';
 import { formatDistanceToNow } from 'date-fns';
 
 const MapPage = () => {
-  const { filteredIssues, loading, setSelectedIssue, getIssueStats } = useIssue();
+  const { filteredIssues, loading, setSelectedIssue, getIssueStats, filters, updateFilters } = useIssue();
   const { selectedLocation, radius, updateRadius } = useLocation();
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIssueModal, setSelectedIssueModal] = useState(null);
@@ -39,16 +39,54 @@ const MapPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(false); // Changed default to false
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapInstance, setMapInstance] = useState(null); // Add map instance state
 
   const stats = getIssueStats();
 
+  // Initialize local filter state with context filters
+  useEffect(() => {
+    setSelectedStatus(filters.status || 'all');
+    setSelectedCategory(filters.category || 'all');
+  }, [filters]);
+
+  // Update context filters when local filters change
+  useEffect(() => {
+    updateFilters({
+      status: selectedStatus,
+      category: selectedCategory
+    });
+  }, [selectedStatus, selectedCategory, updateFilters]);
+
+  // Set initial map center and zoom when location is available
   useEffect(() => {
     if (selectedLocation) {
-      setMapCenter([selectedLocation.lat, selectedLocation.lng]);
+      const newCenter = [selectedLocation.lat, selectedLocation.lng];
+      setMapCenter(newCenter);
+      setZoom(15);
+      
+      // Immediately update the map view if map instance is available
+      if (mapInstance) {
+        mapInstance.setView(newCenter, 15);
+      }
     }
-  }, [selectedLocation]);
+  }, [selectedLocation, mapInstance]);
+
+  // Handle map initialization and updates
+  useEffect(() => {
+    if (mapInstance && selectedLocation) {
+      // Use a small delay to ensure the map is fully initialized
+      const timer = setTimeout(() => {
+        const newCenter = [selectedLocation.lat, selectedLocation.lng];
+        mapInstance.setView(newCenter, 15);
+        setMapCenter(newCenter);
+        setZoom(15);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [mapInstance, selectedLocation]);
 
   const getIssueIcon = (category, status) => {
     const baseSize = 28;
@@ -240,9 +278,10 @@ const MapPage = () => {
 
                 <motion.button
                   onClick={() => {
-                    const map = document.querySelector('.leaflet-container')?._leaflet_map;
-                    if (map) {
-                      map.setView([selectedLocation.lat, selectedLocation.lng], zoom);
+                    // Center map on user's location
+                    if (mapInstance && selectedLocation) {
+                      mapInstance.setView([selectedLocation.lat, selectedLocation.lng], 15);
+                      setZoom(15);
                     }
                   }}
                   className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all duration-200"
@@ -258,9 +297,11 @@ const MapPage = () => {
           {/* Map Area */}
           <div className={`relative ${isFullscreen ? 'h-[calc(100vh-8rem)]' : 'h-96'}`}>
             <MapContainer
-              center={mapCenter}
-              zoom={zoom}
+              center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : mapCenter}
+              zoom={selectedLocation ? 15 : zoom}
               className="w-full h-full"
+              whenCreated={setMapInstance} // Capture map instance when created
+              key={`${selectedLocation?.lat}-${selectedLocation?.lng}`} // Force re-render when location changes
             >
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -268,45 +309,49 @@ const MapPage = () => {
               />
 
               {/* User Location Circle */}
-              <Circle
-                center={[selectedLocation.lat, selectedLocation.lng]}
-                radius={radius * 1000}
-                pathOptions={{
-                  color: '#0ea5e9',
-                  fillColor: '#0ea5e9',
-                  fillOpacity: 0.1,
-                  weight: 2,
-                }}
-              />
+              {selectedLocation && (
+                <Circle
+                  center={[selectedLocation.lat, selectedLocation.lng]}
+                  radius={radius * 1000}
+                  pathOptions={{
+                    color: '#0ea5e9',
+                    fillColor: '#0ea5e9',
+                    fillOpacity: 0.1,
+                    weight: 2,
+                  }}
+                />
+              )}
 
               {/* User Location Marker */}
-              <Marker
-                position={[selectedLocation.lat, selectedLocation.lng]}
-                icon={L.divIcon({
-                  html: `
-                    <div style="
-                      width: 20px; 
-                      height: 20px; 
-                      background: #0ea5e9; 
-                      border: 4px solid white; 
-                      border-radius: 50%; 
-                      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    "></div>
-                  `,
-                  className: 'user-location-marker',
-                  iconSize: [20, 20],
-                  iconAnchor: [10, 10],
-                })}
-              >
-                <Popup>
-                  <div className="text-center p-2">
-                    <div className="font-bold text-gray-900">Your Location</div>
-                    <div className="text-sm text-gray-600">
-                      {radius}km radius
+              {selectedLocation && (
+                <Marker
+                  position={[selectedLocation.lat, selectedLocation.lng]}
+                  icon={L.divIcon({
+                    html: `
+                      <div style="
+                        width: 20px; 
+                        height: 20px; 
+                        background: #0ea5e9; 
+                        border: 4px solid white; 
+                        border-radius: 50%; 
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                      "></div>
+                    `,
+                    className: 'user-location-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                  })}
+                >
+                  <Popup>
+                    <div className="text-center p-2">
+                      <div className="font-bold text-gray-900">Your Location</div>
+                      <div className="text-sm text-gray-600">
+                        {radius}km radius
+                      </div>
                     </div>
-                  </div>
-                </Popup>
-              </Marker>
+                  </Popup>
+                </Marker>
+              )}
 
               {/* Issue Markers */}
               {filteredIssues.map((issue) => (
@@ -335,6 +380,20 @@ const MapPage = () => {
                       <h3 className="font-bold text-gray-900 mb-2">
                         {issue.title}
                       </h3>
+                      {issue.images && issue.images.length > 0 && (
+                        <div className="mb-2">
+                          <img 
+                            src={issue.images[0].url || issue.images[0]} 
+                            alt="Issue" 
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          {issue.images.length > 1 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              +{issue.images.length - 1} more images
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                         {issue.description}
                       </p>
@@ -532,4 +591,4 @@ const getCategoryLabel = (category) => {
   }
 };
 
-export default MapPage; 
+export default MapPage;

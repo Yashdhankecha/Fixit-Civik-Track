@@ -175,7 +175,7 @@ const IssueDetailModal = ({ issue, onClose }) => {
               <div className="mb-6">
                 <div className="relative">
                   <img
-                    src={issue.images[currentImageIndex]}
+                    src={issue.images[currentImageIndex].url || issue.images[currentImageIndex]}
                     alt={`Issue ${currentImageIndex + 1}`}
                     className="w-full h-64 object-cover rounded-lg"
                   />
@@ -208,7 +208,7 @@ const IssueDetailModal = ({ issue, onClose }) => {
                         }`}
                       >
                         <img
-                          src={image}
+                          src={image.url || image}
                           alt={`Thumbnail ${index + 1}`}
                           className="w-full h-full object-cover"
                         />

@@ -4,6 +4,22 @@ const Issue = require('../models/Issue');
 const User = require('../models/User');
 const { protect, optionalAuth } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
+
+// Middleware to check if MongoDB is connected
+const checkMongoDB = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database service unavailable. Please try again later.',
+      error: 'MongoDB is not connected'
+    });
+  }
+  next();
+};
+
+// Apply MongoDB check to all routes
+router.use(checkMongoDB);
 
 // @desc    Get all issues for homepage with comprehensive filtering
 // @route   GET /api/issues
@@ -21,6 +37,8 @@ router.get('/', async (req, res) => {
       sort = 'newest' // newest, oldest, most_voted, most_commented
     } = req.query;
     
+    console.log('Received issue query params:', req.query);
+    
     let query = { isActive: true };
     
     // Filter by status
@@ -37,7 +55,10 @@ router.get('/', async (req, res) => {
     if (lat && lng && radius) {
       const latitude = parseFloat(lat);
       const longitude = parseFloat(lng);
-      const radiusInMeters = parseFloat(radius) * 1000; // Convert km to meters
+      const radiusInKm = parseFloat(radius);
+      const radiusInMeters = radiusInKm * 1000; // Convert km to meters
+      
+      console.log('Location filter:', { latitude, longitude, radiusInKm, radiusInMeters });
       
       // Validate coordinates
       if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusInMeters) ||
@@ -46,20 +67,20 @@ router.get('/', async (req, res) => {
           radiusInMeters <= 0) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid location parameters. Please provide valid lat, lng, and radius values.'
+          message: 'Invalid location parameters. Please provide valid lat, lng, and radius values.',
+          received: { lat, lng, radius }
         });
       }
       
+      // Use $geoWithin with $centerSphere instead of $near for better compatibility
       query.location = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [longitude, latitude] // MongoDB expects [longitude, latitude]
-          },
-          $maxDistance: radiusInMeters
+        $geoWithin: {
+          $centerSphere: [[longitude, latitude], radiusInMeters / 6378137] // Convert meters to radians
         }
       };
     }
+    
+    console.log('MongoDB query:', JSON.stringify(query, null, 2));
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
@@ -83,21 +104,44 @@ router.get('/', async (req, res) => {
     
     // Execute query with population
     const issues = await Issue.find(query)
-      .populate('reportedBy', 'name email')
-      .populate('assignedTo', 'name email')
-      .populate('comments.user', 'name email')
-      .populate('upvotes', 'name')
-      .populate('downvotes', 'name')
+      .populate({
+        path: 'reportedBy',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'assignedTo',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'comments.user',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'upvotes',
+        select: 'name',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'downvotes',
+        select: 'name',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
       .sort(sortObject)
       .limit(parseInt(limit))
       .skip(skip);
+    
+    console.log(`Found ${issues.length} issues`);
     
     // Get total count for pagination
     const total = await Issue.countDocuments(query);
     
     // Format response for frontend
     const formattedIssues = issues.map(issue => ({
-      id: issue._id,
+      _id: issue._id,
+      id: issue._id, // Add both for compatibility
       title: issue.title,
       description: issue.description,
       category: issue.category,
@@ -121,10 +165,10 @@ router.get('/', async (req, res) => {
         email: issue.assignedTo.email
       } : null,
       voteCount: issue.voteCount,
-      upvotes: issue.upvotes.length,
-      downvotes: issue.downvotes.length,
+      upvotes: (issue.upvotes && Array.isArray(issue.upvotes)) ? issue.upvotes.length : 0,
+      downvotes: (issue.downvotes && Array.isArray(issue.downvotes)) ? issue.downvotes.length : 0,
       commentCount: issue.commentCount,
-      comments: issue.comments.map(comment => ({
+      comments: (issue.comments && Array.isArray(issue.comments)) ? issue.comments.map(comment => ({
         id: comment._id,
         text: comment.text,
         createdAt: comment.createdAt,
@@ -132,11 +176,13 @@ router.get('/', async (req, res) => {
           name: comment.user.name,
           email: comment.user.email
         }
-      })),
+      })) : [],
       priority: issue.priority,
       estimatedResolutionTime: issue.estimatedResolutionTime,
       tags: issue.tags,
-      isActive: issue.isActive
+      isActive: issue.isActive,
+      flags: [],
+      followers: 0
     }));
     
     res.json({
@@ -161,7 +207,8 @@ router.get('/', async (req, res) => {
     console.error('Get issues error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching issues'
+      message: 'Server error while fetching issues',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -186,9 +233,21 @@ router.get('/my-issues', protect, async (req, res) => {
     const skip = (page - 1) * limit;
     
     const issues = await Issue.find(query)
-      .populate('reportedBy', 'name email')
-      .populate('assignedTo', 'name email')
-      .populate('comments.user', 'name email')
+      .populate({
+        path: 'reportedBy',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'assignedTo',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'comments.user',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
@@ -209,7 +268,8 @@ router.get('/my-issues', protect, async (req, res) => {
     console.error('Get user issues error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -238,7 +298,8 @@ router.get('/my-stats', protect, async (req, res) => {
     console.error('Get user stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -249,11 +310,31 @@ router.get('/my-stats', protect, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const issue = await Issue.findById(req.params.id)
-      .populate('reportedBy', 'name email')
-      .populate('assignedTo', 'name email')
-      .populate('comments.user', 'name email')
-      .populate('upvotes', 'name')
-      .populate('downvotes', 'name');
+      .populate({
+        path: 'reportedBy',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'assignedTo',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'comments.user',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'upvotes',
+        select: 'name',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
+      .populate({
+        path: 'downvotes',
+        select: 'name',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      });
     
     if (!issue) {
       return res.status(404).json({
@@ -270,7 +351,8 @@ router.get('/:id', async (req, res) => {
     console.error('Get issue error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -292,6 +374,7 @@ router.post('/', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -309,11 +392,14 @@ router.post('/', [
       images = []
     } = req.body;
     
+    console.log('Creating issue with data:', req.body);
+    
     // Validate coordinates
     if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
       return res.status(400).json({
         success: false,
-        message: 'Valid location coordinates are required'
+        message: 'Valid location coordinates are required',
+        received: location
       });
     }
     
@@ -337,24 +423,60 @@ router.post('/', [
       issueData.reportedBy = req.user.id;
     }
     
+    console.log('Saving issue to database:', issueData);
+    
     const issue = new Issue(issueData);
     await issue.save();
+    
+    console.log('Issue saved successfully:', issue._id);
     
     // Populate reporter info if available
     if (issue.reportedBy) {
       await issue.populate('reportedBy', 'name email');
     }
     
+    // Format response for frontend compatibility
+    const formattedIssue = {
+      _id: issue._id,
+      id: issue._id,
+      title: issue.title,
+      description: issue.description,
+      category: issue.category,
+      status: issue.status,
+      severity: issue.severity,
+      location: {
+        lat: issue.location.coordinates[1],
+        lng: issue.location.coordinates[0],
+        address: issue.location.address
+      },
+      createdAt: issue.createdAt,
+      updatedAt: issue.updatedAt,
+      images: issue.images,
+      anonymous: issue.anonymous,
+      reporter: issue.reportedBy ? {
+        name: issue.reportedBy.name,
+        email: issue.reportedBy.email
+      } : { name: 'Anonymous', email: null },
+      voteCount: issue.voteCount || 0,
+      upvotes: 0,
+      downvotes: 0,
+      commentCount: issue.commentCount || 0,
+      comments: [],
+      flags: [],
+      followers: 0
+    };
+    
     res.status(201).json({
       success: true,
       message: 'Issue created successfully',
-      data: issue
+      data: formattedIssue
     });
   } catch (error) {
     console.error('Create issue error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while creating issue',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -500,7 +622,7 @@ router.post('/:id/comments', [
     res.json({
       success: true,
       message: 'Comment added successfully',
-      data: issue.comments[issue.comments.length - 1]
+      data: issue.comments && Array.isArray(issue.comments) ? issue.comments[issue.comments.length - 1] : null
     });
   } catch (error) {
     console.error('Add comment error:', error);
@@ -544,8 +666,8 @@ router.post('/:id/vote', [
       message: 'Vote recorded successfully',
       data: {
         voteCount: issue.voteCount,
-        upvotes: issue.upvotes.length,
-        downvotes: issue.downvotes.length
+        upvotes: (issue.upvotes && Array.isArray(issue.upvotes)) ? issue.upvotes.length : 0,
+        downvotes: (issue.downvotes && Array.isArray(issue.downvotes)) ? issue.downvotes.length : 0
       }
     });
   } catch (error) {
@@ -613,9 +735,10 @@ router.get('/stats/overview', async (req, res) => {
     console.error('Get stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-module.exports = router; 
+module.exports = router;

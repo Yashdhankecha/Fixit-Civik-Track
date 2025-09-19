@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import api from '../utils/api';
 
 const LocationContext = createContext();
 
@@ -23,6 +24,30 @@ export const LocationProvider = ({ children }) => {
 
   // Get user's current location on mount
   useEffect(() => {
+    // Check if we have a recent cached location first
+    const savedLocation = localStorage.getItem('userLocation');
+    const savedTimestamp = localStorage.getItem('locationTimestamp');
+    
+    if (savedLocation && savedTimestamp) {
+      try {
+        const location = JSON.parse(savedLocation);
+        const timestamp = parseInt(savedTimestamp);
+        const isRecent = Date.now() - timestamp < 60 * 60 * 1000; // 1 hour
+        
+        if (isRecent && location.lat && location.lng) {
+          setUserLocation(location);
+          setSelectedLocation(location);
+          setLocationPermission('granted');
+          setLocationLoading(false);
+          console.log('Using cached location');
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing cached location:', e);
+      }
+    }
+    
+    // If no valid cache, request fresh location
     getCurrentLocation();
   }, []);
 
@@ -32,27 +57,42 @@ export const LocationProvider = ({ children }) => {
     try {
       // Check if geolocation is supported
       if (!navigator.geolocation) {
-        toast.error('Geolocation is not supported by your browser');
-        // Use default location for development
-        setUserLocation(DEFAULT_LOCATION);
-        setSelectedLocation(DEFAULT_LOCATION);
-        setLocationPermission('granted');
-        localStorage.setItem('userLocation', JSON.stringify(DEFAULT_LOCATION));
-        setLocationLoading(false);
+        console.warn('Geolocation is not supported by this browser');
+        await handleLocationFallback('Geolocation not supported');
         return;
       }
 
-      // Get current position
+      // Check if we're in a secure context (HTTPS or localhost)
+      if (window.location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+        console.warn('Geolocation requires HTTPS or localhost');
+        await handleLocationFallback('Secure connection required for location access');
+        return;
+      }
+
+      // Get current position with improved error handling
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000, // 5 minutes
-        });
+        const options = {
+          enableHighAccuracy: false, // Use false for faster response
+          timeout: 15000, // Increased timeout
+          maximumAge: 300000, // 5 minutes cache
+        };
+        
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          options
+        );
       });
 
-      const { latitude, longitude } = position.coords;
-      const location = { lat: latitude, lng: longitude };
+      const { latitude, longitude, accuracy } = position.coords;
+      const location = { lat: latitude, lng: longitude, accuracy };
+      
+      // Validate coordinates
+      if (isNaN(latitude) || isNaN(longitude) || 
+          latitude < -90 || latitude > 90 || 
+          longitude < -180 || longitude > 180) {
+        throw new Error('Invalid coordinates received');
+      }
       
       setUserLocation(location);
       setSelectedLocation(location);
@@ -60,55 +100,86 @@ export const LocationProvider = ({ children }) => {
       
       // Store in localStorage for persistence
       localStorage.setItem('userLocation', JSON.stringify(location));
+      localStorage.setItem('locationTimestamp', Date.now().toString());
       
-      toast.success('Location detected successfully');
+      toast.success(`Location detected (±${Math.round(accuracy)}m accuracy)`);
     } catch (error) {
       console.error('Location error:', error);
-      
-      // Handle different error types
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          setLocationPermission('denied');
-          toast.error('Location permission denied. Using default location.');
-          // Use default location for development
-          setUserLocation(DEFAULT_LOCATION);
-          setSelectedLocation(DEFAULT_LOCATION);
-          break;
-        case error.POSITION_UNAVAILABLE:
-          toast.error('Location information unavailable. Using default location.');
-          setUserLocation(DEFAULT_LOCATION);
-          setSelectedLocation(DEFAULT_LOCATION);
-          break;
-        case error.TIMEOUT:
-          toast.error('Location request timed out. Using default location.');
-          setUserLocation(DEFAULT_LOCATION);
-          setSelectedLocation(DEFAULT_LOCATION);
-          break;
-        default:
-          toast.error('Unable to get your location. Using default location.');
-          setUserLocation(DEFAULT_LOCATION);
-          setSelectedLocation(DEFAULT_LOCATION);
-      }
-      
-      // Try to get location from localStorage
-      const savedLocation = localStorage.getItem('userLocation');
-      if (savedLocation) {
-        try {
-          const location = JSON.parse(savedLocation);
-          setUserLocation(location);
-          setSelectedLocation(location);
-          toast.info('Using saved location');
-        } catch (e) {
-          console.error('Error parsing saved location:', e);
-        }
-      }
+      await handleLocationError(error);
     } finally {
       setLocationLoading(false);
     }
   };
 
+  const handleLocationError = async (error) => {
+    let message = 'Unable to get your location';
+    
+    if (error.code) {
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          setLocationPermission('denied');
+          message = 'Location permission denied';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          message = 'Location information unavailable';
+          break;
+        case error.TIMEOUT:
+          message = 'Location request timed out';
+          break;
+        default:
+          message = 'Location service error';
+      }
+    }
+    
+    await handleLocationFallback(message);
+  };
+
+  const handleLocationFallback = async (reason) => {
+    console.log(`Using location fallback: ${reason}`);
+    
+    // Try to get location from localStorage first
+    const savedLocation = localStorage.getItem('userLocation');
+    const savedTimestamp = localStorage.getItem('locationTimestamp');
+    
+    if (savedLocation && savedTimestamp) {
+      try {
+        const location = JSON.parse(savedLocation);
+        const timestamp = parseInt(savedTimestamp);
+        const isRecent = Date.now() - timestamp < 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (isRecent && location.lat && location.lng) {
+          setUserLocation(location);
+          setSelectedLocation(location);
+          setLocationPermission('granted');
+          toast.info('Using saved location');
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing saved location:', e);
+        localStorage.removeItem('userLocation');
+        localStorage.removeItem('locationTimestamp');
+      }
+    }
+    
+    // Fall back to default location
+    setUserLocation(DEFAULT_LOCATION);
+    setSelectedLocation(DEFAULT_LOCATION);
+    setLocationPermission('denied');
+    localStorage.setItem('userLocation', JSON.stringify(DEFAULT_LOCATION));
+    localStorage.setItem('locationTimestamp', Date.now().toString());
+    
+    toast.info(`${reason}. Using default location (NYC) for demo`);
+  };
+
   const requestLocationPermission = async () => {
     try {
+      // Check if permissions API is supported
+      if (!navigator.permissions) {
+        console.warn('Permissions API not supported, attempting direct geolocation');
+        await getCurrentLocation();
+        return;
+      }
+
       const permission = await navigator.permissions.query({ name: 'geolocation' });
       
       if (permission.state === 'granted') {
@@ -119,17 +190,21 @@ export const LocationProvider = ({ children }) => {
         await getCurrentLocation();
       } else {
         setLocationPermission('denied');
-        // Use default location for development
-        setUserLocation(DEFAULT_LOCATION);
-        setSelectedLocation(DEFAULT_LOCATION);
-        toast.info('Using default location for demo');
+        await handleLocationFallback('Location permission denied');
       }
+      
+      // Listen for permission changes
+      permission.addEventListener('change', () => {
+        setLocationPermission(permission.state);
+        if (permission.state === 'granted') {
+          getCurrentLocation();
+        } else if (permission.state === 'denied') {
+          handleLocationFallback('Location permission denied');
+        }
+      });
     } catch (error) {
       console.error('Permission request error:', error);
-      // Use default location for development
-      setUserLocation(DEFAULT_LOCATION);
-      setSelectedLocation(DEFAULT_LOCATION);
-      toast.info('Using default location for demo');
+      await handleLocationFallback('Permission check failed');
     }
   };
 
@@ -168,29 +243,133 @@ export const LocationProvider = ({ children }) => {
 
   const getAddressFromCoords = async (lat, lng) => {
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-      );
-      const data = await response.json();
-      return data.display_name;
+      // First, try our server-side proxy (no CORS issues)
+      try {
+        const response = await api.get('/api/geocode/reverse', {
+          params: { lat, lng }
+        });
+        
+        if (response.data.success) {
+          return response.data.data.address;
+        }
+      } catch (proxyError) {
+        console.log('Server proxy geocoding failed, trying direct methods:', proxyError.message);
+      }
+      
+      // Fallback to direct API calls
+      const simpleAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      
+      // Try alternative geocoding service that supports CORS
+      try {
+        // Rate limit: max 1 request per second
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+          {
+            headers: {
+              'User-Agent': 'FixItApp/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && (data.locality || data.city || data.principalSubdivision)) {
+            const addressParts = [];
+            if (data.locality) addressParts.push(data.locality);
+            if (data.city && data.city !== data.locality) addressParts.push(data.city);
+            if (data.principalSubdivision) addressParts.push(data.principalSubdivision);
+            if (data.countryName) addressParts.push(data.countryName);
+            
+            return addressParts.length > 0 ? addressParts.join(', ') : simpleAddress;
+          }
+        }
+      } catch (geocodeError) {
+        console.log('Direct geocoding service failed, using coordinates:', geocodeError.message);
+      }
+      
+      // Final fallback to coordinate-based address
+      return simpleAddress;
     } catch (error) {
       console.error('Error getting address:', error);
-      return 'Unknown location';
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
   };
 
   const getCoordsFromAddress = async (address) => {
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`
-      );
-      const data = await response.json();
+      // First, try our server-side proxy (no CORS issues)
+      try {
+        const response = await api.get('/api/geocode/forward', {
+          params: { address }
+        });
+        
+        if (response.data.success) {
+          return response.data.data;
+        }
+      } catch (proxyError) {
+        console.log('Server proxy geocoding failed, trying direct methods:', proxyError.message);
+      }
       
-      if (data.length > 0) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon)
-        };
+      // Rate limit: max 1 request per second  
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Try multiple geocoding services for better reliability
+      const geocodingServices = [
+        // Service 1: BigDataCloud (free, CORS-enabled)
+        async () => {
+          const response = await fetch(
+            `https://api.bigdatacloud.net/data/forward-geocode-client?query=${encodeURIComponent(address)}&localityLanguage=en`,
+            {
+              headers: {
+                'User-Agent': 'FixItApp/1.0'
+              }
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.results && data.results.length > 0) {
+              const result = data.results[0];
+              return {
+                lat: parseFloat(result.latitude),
+                lng: parseFloat(result.longitude),
+                display_name: result.locality || address,
+                accuracy: result.confidence || 0.5
+              };
+            }
+          }
+          return null;
+        },
+        
+        // Service 2: Fallback - try to parse if it looks like coordinates
+        async () => {
+          const coordPattern = /^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/;
+          const match = address.match(coordPattern);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[2]),
+              display_name: address,
+              accuracy: 1.0
+            };
+          }
+          return null;
+        }
+      ];
+      
+      // Try each service in order
+      for (const service of geocodingServices) {
+        try {
+          const result = await service();
+          if (result && !isNaN(result.lat) && !isNaN(result.lng)) {
+            return result;
+          }
+        } catch (serviceError) {
+          console.log('Geocoding service failed:', serviceError.message);
+          continue;
+        }
       }
       
       return null;
@@ -198,6 +377,21 @@ export const LocationProvider = ({ children }) => {
       console.error('Error getting coordinates:', error);
       return null;
     }
+  };
+
+  const refreshLocation = async () => {
+    // Force refresh the current location
+    localStorage.removeItem('userLocation');
+    localStorage.removeItem('locationTimestamp');
+    await getCurrentLocation();
+  };
+
+  const clearLocationCache = () => {
+    localStorage.removeItem('userLocation');
+    localStorage.removeItem('locationTimestamp');
+    setUserLocation(null);
+    setSelectedLocation(null);
+    setLocationPermission('prompt');
   };
 
   const value = {
@@ -208,6 +402,8 @@ export const LocationProvider = ({ children }) => {
     radius,
     getCurrentLocation,
     requestLocationPermission,
+    refreshLocation,
+    clearLocationCache,
     updateSelectedLocation,
     updateRadius,
     calculateDistance,

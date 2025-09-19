@@ -1,6 +1,55 @@
-# FixIt Backend Server
+# FixIt Civic Track Backend
 
-This is the backend server for the FixIt application, providing authentication and issue management APIs.
+This is the backend for the FixIt Civic Track application, built with Node.js, Express, and MongoDB.
+
+## Deployment
+
+To deploy this backend to Render:
+
+1. Push the code to GitHub
+2. Connect Render to your GitHub repository
+3. Configure the service with:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Root Directory: `server`
+
+## Environment Variables
+
+For production deployment, set the following environment variables in Render:
+
+```
+NODE_ENV=production
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+EMAIL_HOST=your_email_host
+EMAIL_PORT=your_email_port
+EMAIL_USER=your_email_user
+EMAIL_PASS=your_email_password
+FRONTEND_URL=https://your-frontend-domain.com
+```
+
+## Development
+
+To run the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+The development server will start on http://localhost:5000
+
+## API Endpoints
+
+- Authentication: `/api/auth`
+- Issues: `/api/issues`
+- Notifications: `/api/notifications`
+- Admin: `/api/admin`
+- Health Check: `/api/health`
+
+## Database
+
+The application uses MongoDB for data storage. Make sure MongoDB is running or provide a MongoDB connection string via the `MONGODB_URI` environment variable.
 
 ## Features
 

@@ -2,6 +2,22 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const { protect } = require('../middleware/auth');
+const mongoose = require('mongoose');
+
+// Middleware to check if MongoDB is connected
+const checkMongoDB = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database service unavailable. Please try again later.',
+      error: 'MongoDB is not connected'
+    });
+  }
+  next();
+};
+
+// Apply MongoDB check to all routes
+router.use(checkMongoDB);
 
 // @route   GET /api/notifications
 // @desc    Get user notifications with filters
@@ -210,4 +226,4 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

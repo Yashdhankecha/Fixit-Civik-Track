@@ -98,6 +98,8 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      console.log('Attempting login with:', { email, password: password ? '***' : undefined });
+      
       const response = await api.post('/api/auth/login', {
         email,
         password
@@ -122,7 +124,18 @@ export const AuthProvider = ({ children }) => {
         throw new Error(response.data.message || 'Login failed');
       }
     } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Login failed';
+      console.error('Login error:', error);
+      
+      let message = 'Login failed';
+      
+      if (error.response?.data?.message) {
+        message = error.response.data.message;
+      } else if (error.response?.status === 401) {
+        message = 'Invalid email or password. Try: test@example.com / password';
+      } else if (error.message) {
+        message = error.message;
+      }
+      
       toast.error(message);
       return { success: false, error: message };
     } finally {

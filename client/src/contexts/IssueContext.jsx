@@ -106,11 +106,39 @@ export const IssueProvider = ({ children }) => {
   const { selectedLocation, isWithinRadius } = useLocation();
   const { user, token } = useAuth();
   const fetchTimeoutRef = useRef(null);
+  const [useMockData, setUseMockData] = useState(false);
+  const [serverAvailable, setServerAvailable] = useState(null);
 
   // Initialize with mock data for development
   useEffect(() => {
     setIssues(mockIssues);
+    
+    // Check server health on initialization
+    checkServerHealth();
   }, []);
+
+  // Check server health
+  const checkServerHealth = async () => {
+    try {
+      const health = await api.checkServerHealth();
+      if (health) {
+        console.log('Server health:', health);
+        setServerAvailable(true);
+        // If server is available and we were using mock data, try to fetch real data
+        if (useMockData && selectedLocation) {
+          fetchIssues();
+        }
+      } else {
+        console.log('Server not available, using mock data');
+        setServerAvailable(false);
+        setUseMockData(true);
+      }
+    } catch (error) {
+      console.log('Server health check failed, using mock data');
+      setServerAvailable(false);
+      setUseMockData(true);
+    }
+  };
 
   // Fetch issues when location changes with debouncing
   useEffect(() => {
@@ -122,6 +150,7 @@ export const IssueProvider = ({ children }) => {
       
       // Set a new timeout to debounce the request
       fetchTimeoutRef.current = setTimeout(() => {
+        console.log('Triggering fetchIssues due to location/filter change');
         fetchIssues();
       }, 500); // 500ms delay
     }
@@ -132,14 +161,16 @@ export const IssueProvider = ({ children }) => {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [selectedLocation, filters.status, filters.category, filters.radius]);
+  }, [selectedLocation, filters.radius]); // Only fetch when location or radius changes
 
   // Filter issues based on current filters and location
   useEffect(() => {
-    if (issues.length > 0 && selectedLocation) {
+    if (issues.length > 0) {
       const filtered = issues.filter(issue => {
-        // Check if issue is within radius
-        const withinRadius = isWithinRadius ? isWithinRadius(issue.location) : true;
+        // Check if issue is within radius (only if we have both locations)
+        const withinRadius = selectedLocation && issue.location 
+          ? isWithinRadius(issue.location) 
+          : true;
         
         // Apply status filter
         const statusMatch = filters.status === 'all' || issue.status === filters.status;
@@ -152,27 +183,61 @@ export const IssueProvider = ({ children }) => {
       
       setFilteredIssues(filtered);
     } else {
-      setFilteredIssues(issues);
+      setFilteredIssues([]);
     }
-  }, [issues, filters, selectedLocation]);
+  }, [issues, filters, selectedLocation, isWithinRadius]);
 
   const fetchIssues = async (retryCount = 0) => {
-    if (!selectedLocation) return;
+    // If server is not available or we're already using mock data, use mock data
+    if (useMockData || serverAvailable === false) {
+      console.log('Using mock data for issues');
+      setIssues(mockIssues);
+      return;
+    }
+    
+    if (!selectedLocation) {
+      console.log('No location available for fetching issues');
+      return;
+    }
     
     setLoading(true);
     try {
-      const response = await api.get('/api/issues', {
-        params: {
-          location: `${selectedLocation.lat},${selectedLocation.lng}`,
-          radius: filters.radius,
-          status: filters.status,
-          category: filters.category
+      console.log('Fetching issues for location:', selectedLocation);
+      
+      const params = {
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        radius: filters.radius,
+        status: filters.status !== 'all' ? filters.status : undefined,
+        category: filters.category !== 'all' ? filters.category : undefined,
+        limit: 50,
+        page: 1,
+        sort: 'newest'
+      };
+      
+      // Remove undefined values
+      Object.keys(params).forEach(key => {
+        if (params[key] === undefined) {
+          delete params[key];
         }
       });
       
+      console.log('API request params:', params);
+      
+      const response = await api.get('/api/issues', { params });
+      
+      console.log('API response:', response.data);
+      
       if (response.data.success) {
-        setIssues(response.data.data);
+        const issues = response.data.data || [];
+        console.log(`Fetched ${issues.length} issues`);
+        setIssues(issues);
+        
+        if (issues.length === 0) {
+          toast.info('No issues found in your area');
+        }
       } else {
+        console.error('API returned unsuccessful response:', response.data);
         throw new Error(response.data.message || 'Failed to fetch issues');
       }
     } catch (error) {
@@ -189,58 +254,174 @@ export const IssueProvider = ({ children }) => {
         return;
       } else if (error.response?.status === 429) {
         toast.error('Too many requests. Please wait a moment and try again.');
+      } else if (error.response?.status === 404) {
+        console.log('API endpoint not found, using mock data');
+        toast.info('Using demo data - server not connected');
+        setUseMockData(true);
+        setIssues(mockIssues);
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        console.log('Network error or server unavailable, using mock data');
+        toast.info('Server unavailable - using demo data');
+        setUseMockData(true);
+        setIssues(mockIssues);
       } else {
+        console.error('Unexpected error:', error);
         toast.error('Failed to load issues');
+        // Fallback to mock data
+        console.log('Using mock data as fallback');
+        setUseMockData(true);
+        setIssues(mockIssues);
       }
-      
-      // Fallback to mock data
-      setIssues(mockIssues);
     } finally {
       setLoading(false);
     }
   };
 
   const createIssue = async (issueData) => {
+    // If we're using mock data, just simulate the creation
+    if (useMockData || serverAvailable === false) {
+      const newIssue = {
+        id: `${issues.length + 1}`,
+        ...issueData,
+        reporter: user ? { name: user.name, email: user.email } : { name: 'Anonymous', email: null },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        flags: [],
+        followers: 0
+      };
+      
+      setIssues(prev => [newIssue, ...prev]);
+      toast.success('Issue reported successfully!');
+      return { success: true, issue: newIssue };
+    }
+    
     try {
-      const response = await api.post('/api/issues', issueData);
+      console.log('Creating issue with data:', issueData);
+      
+      // Prepare the data for API
+      const apiData = {
+        title: issueData.title,
+        description: issueData.description,
+        category: issueData.category,
+        severity: issueData.severity || 'medium',
+        location: {
+          lat: issueData.location.lat,
+          lng: issueData.location.lng,
+          address: issueData.location.address || ''
+        },
+        anonymous: issueData.anonymous || false,
+        images: issueData.images || []
+      };
+      
+      const response = await api.post('/api/issues', apiData);
+      
+      console.log('Create issue response:', response.data);
       
       if (response.data.success) {
-        setIssues(prev => [response.data.data, ...prev]);
+        const newIssue = response.data.data;
+        
+        // Format the issue for frontend compatibility
+        const formattedIssue = {
+          ...newIssue,
+          id: newIssue._id || newIssue.id,
+          location: newIssue.location, // Use location directly as it's already formatted correctly
+          reporter: newIssue.reporter || newIssue.reportedBy ? {
+            name: (newIssue.reporter || newIssue.reportedBy)?.name || 'Anonymous',
+            email: (newIssue.reporter || newIssue.reportedBy)?.email || null
+          } : { name: 'Anonymous', email: null },
+          flags: [],
+          followers: 0
+        };
+        
+        setIssues(prev => [formattedIssue, ...prev]);
         toast.success('Issue reported successfully!');
-        return { success: true, issue: response.data.data };
+        return { success: true, issue: formattedIssue };
       } else {
         throw new Error(response.data.message || 'Failed to create issue');
       }
     } catch (error) {
       console.error('Error creating issue:', error);
-      toast.error('Failed to report issue');
-      return { success: false, error: error.message };
+      
+      let errorMessage = 'Failed to report issue';
+      
+      if (error.response?.status === 400) {
+        errorMessage = error.response.data.message || 'Invalid issue data';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Please log in to report issues';
+      } else if (!error.response) {
+        errorMessage = 'Server unavailable - please try again later';
+      }
+      
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
   const updateIssue = async (issueId, updates) => {
+    // If we're using mock data, just simulate the update
+    if (useMockData || serverAvailable === false) {
+      setIssues(prev => prev.map(issue => 
+        issue.id === issueId 
+          ? { ...issue, ...updates, updatedAt: new Date() }
+          : issue
+      ));
+      
+      toast.success('Issue updated successfully!');
+      return { success: true };
+    }
+    
     try {
+      console.log('Updating issue:', issueId, updates);
+      
       const response = await api.put(`/api/issues/${issueId}`, updates);
       
       if (response.data.success) {
+        const updatedIssue = response.data.data;
+        
+        // Format the updated issue for frontend compatibility
+        const formattedIssue = {
+          ...updatedIssue,
+          id: updatedIssue._id || updatedIssue.id,
+          location: updatedIssue.location // Use location directly as it's already formatted correctly
+        };
+        
         setIssues(prev => prev.map(issue => 
-          issue._id === issueId 
-            ? response.data.data
+          (issue._id === issueId || issue.id === issueId)
+            ? formattedIssue
             : issue
         ));
+        
         toast.success('Issue updated successfully!');
-        return { success: true };
+        return { success: true, issue: formattedIssue };
       } else {
         throw new Error(response.data.message || 'Failed to update issue');
       }
     } catch (error) {
       console.error('Error updating issue:', error);
-      toast.error('Failed to update issue');
-      return { success: false, error: error.message };
+      
+      let errorMessage = 'Failed to update issue';
+      
+      if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to update this issue';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Issue not found';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Please log in to update issues';
+      }
+      
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
   const deleteIssue = async (issueId) => {
+    // If we're using mock data, just simulate the deletion
+    if (useMockData || serverAvailable === false) {
+      setIssues(prev => prev.filter(issue => issue.id !== issueId));
+      toast.success('Issue deleted successfully!');
+      return { success: true };
+    }
+    
     try {
       const response = await api.delete(`/api/issues/${issueId}`);
       
@@ -338,6 +519,11 @@ export const IssueProvider = ({ children }) => {
   };
 
   const getUserIssues = useCallback(async (options = {}) => {
+    // If we're using mock data, return mock user issues
+    if (useMockData || serverAvailable === false) {
+      return mockIssues;
+    }
+    
     try {
       const response = await api.get('/api/issues/my-issues', {
         params: options
@@ -353,9 +539,21 @@ export const IssueProvider = ({ children }) => {
       toast.error('Failed to load your issues');
       return [];
     }
-  }, []);
+  }, [useMockData, serverAvailable]);
 
   const getUserStats = async () => {
+    // If we're using mock data, return mock stats
+    if (useMockData || serverAvailable === false) {
+      return {
+        total: mockIssues.length,
+        reported: mockIssues.filter(i => i.status === 'reported').length,
+        inProgress: mockIssues.filter(i => i.status === 'in_progress').length,
+        resolved: mockIssues.filter(i => i.status === 'resolved').length,
+        totalVotes: 0,
+        totalComments: 0
+      };
+    }
+    
     try {
       const response = await api.get('/api/issues/my-stats');
       
@@ -398,6 +596,8 @@ export const IssueProvider = ({ children }) => {
     getIssueStats,
     getUserIssues,
     getUserStats,
+    useMockData, // Expose this for debugging
+    serverAvailable, // Expose server status
   };
 
   return (
@@ -405,4 +605,4 @@ export const IssueProvider = ({ children }) => {
       {children}
     </IssueContext.Provider>
   );
-}; 
+};

@@ -304,8 +304,37 @@ npm run dev
 ```
 
 ### Production Deployment
+
+#### Option 1: Netlify (Frontend) + Render (Backend)
+
+**Frontend Deployment (Netlify):**
+1. Build the frontend:
+   ```bash
+   cd client
+   npm run build
+   ```
+2. Deploy to Netlify either by:
+   - Dragging the `dist` folder to Netlify
+   - Connecting to GitHub for continuous deployment
+
+**Backend Deployment (Render):**
+1. Push the code to GitHub
+2. Connect Render to your GitHub repository
+3. Configure the service with:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Root Directory: `server`
+
+**Environment Variables:**
+- Frontend (Netlify): `VITE_APP_API_URL` = your Render backend URL
+- Backend (Render): Set all required environment variables (see server README)
+
+#### Option 2: Custom Deployment
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+
+### Production Configuration
 1. Set `NODE_ENV=production`
-2. Use a production MongoDB instance
+2. Use a production MongoDB instance (MongoDB Atlas recommended)
 3. Configure proper CORS origins
 4. Set secure JWT secrets
 5. Enable HTTPS

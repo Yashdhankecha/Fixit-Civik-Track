@@ -1,23 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Navigation, Globe, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Globe, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useLocation } from '../contexts/LocationContext';
 
 const LocationPrompt = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { getCurrentLocation, requestLocationPermission, locationPermission } = useLocation();
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualAddress, setManualAddress] = useState('');
+  const { 
+    getCurrentLocation, 
+    requestLocationPermission, 
+    locationPermission, 
+    userLocation,
+    getCoordsFromAddress,
+    updateSelectedLocation,
+    refreshLocation,
+    clearLocationCache
+  } = useLocation();
+
+  // Auto-hide prompt if location is already available
+  useEffect(() => {
+    if (userLocation) {
+      // Location is available, this component should not be shown
+      console.log('Location available, hiding prompt');
+    }
+  }, [userLocation]);
 
   const handleGetLocation = async () => {
     setIsLoading(true);
-    await getCurrentLocation();
-    setIsLoading(false);
+    try {
+      await getCurrentLocation();
+    } catch (error) {
+      console.error('Error getting location:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleManualLocation = () => {
-    // This would open a location picker modal
-    // For now, we'll just show an alert
-    alert('Manual location selection will be implemented');
+  const handleRefreshLocation = async () => {
+    setIsLoading(true);
+    try {
+      await refreshLocation();
+    } catch (error) {
+      console.error('Error refreshing location:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleManualLocationSubmit = async (e) => {
+    e.preventDefault();
+    if (!manualAddress.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const coords = await getCoordsFromAddress(manualAddress);
+      if (coords) {
+        updateSelectedLocation(coords);
+        setShowManualInput(false);
+        setManualAddress('');
+      } else {
+        alert('Location not found. Please try a different address.');
+      }
+    } catch (error) {
+      console.error('Error getting coordinates:', error);
+      alert('Error finding location. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkipLocation = () => {
+    // Use default location and hide prompt
+    updateSelectedLocation({ lat: 40.7128, lng: -74.0060 }); // NYC default
+  };
+
+  // Don't show if location is already available
+  if (userLocation) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center p-4">
@@ -68,42 +129,119 @@ const LocationPrompt = () => {
             <div className="flex items-center space-x-2">
               <AlertCircle size={16} className="text-danger-600" />
               <span className="text-sm text-danger-700">
-                Location access was denied. Please enable it in your browser settings.
+                Location access was denied. You can enable it in browser settings or enter an address manually.
               </span>
             </div>
           </motion.div>
         )}
 
-        {/* Action Buttons */}
-        <motion.div
-          className="space-y-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <button
-            onClick={handleGetLocation}
-            disabled={isLoading}
-            className="w-full btn-primary flex items-center justify-center space-x-2"
+        {locationPermission === 'granted' && (
+          <motion.div
+            className="bg-success-50 border border-success-200 rounded-lg p-4 mb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
           >
-            {isLoading ? (
-              <div className="loading-spinner w-4 h-4"></div>
-            ) : (
-              <Navigation size={16} />
-            )}
-            <span>
-              {isLoading ? 'Getting Location...' : 'Use Current Location'}
-            </span>
-          </button>
+            <div className="flex items-center space-x-2">
+              <CheckCircle size={16} className="text-success-600" />
+              <span className="text-sm text-success-700">
+                Location access granted! Getting your location...
+              </span>
+            </div>
+          </motion.div>
+        )}
 
-          <button
-            onClick={handleManualLocation}
-            className="w-full btn-outline flex items-center justify-center space-x-2"
+        {/* Manual Address Input */}
+        {showManualInput && (
+          <motion.form
+            onSubmit={handleManualLocationSubmit}
+            className="mb-6"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
           >
-            <Globe size={16} />
-            <span>Choose Location Manually</span>
-          </button>
-        </motion.div>
+            <input
+              type="text"
+              value={manualAddress}
+              onChange={(e) => setManualAddress(e.target.value)}
+              placeholder="Enter your address, city, or landmark"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-3"
+              disabled={isLoading}
+            />
+            <div className="flex space-x-2">
+              <button
+                type="submit"
+                disabled={isLoading || !manualAddress.trim()}
+                className="flex-1 btn-primary"
+              >
+                {isLoading ? 'Searching...' : 'Use This Location'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowManualInput(false);
+                  setManualAddress('');
+                }}
+                className="btn-outline"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.form>
+        )}
+
+        {/* Action Buttons */}
+        {!showManualInput && (
+          <motion.div
+            className="space-y-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            <button
+              onClick={handleGetLocation}
+              disabled={isLoading}
+              className="w-full btn-primary flex items-center justify-center space-x-2"
+            >
+              {isLoading ? (
+                <div className="loading-spinner w-4 h-4"></div>
+              ) : (
+                <Navigation size={16} />
+              )}
+              <span>
+                {isLoading ? 'Getting Location...' : 'Use Current Location'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShowManualInput(true)}
+              className="w-full btn-outline flex items-center justify-center space-x-2"
+              disabled={isLoading}
+            >
+              <Globe size={16} />
+              <span>Enter Address Manually</span>
+            </button>
+
+            {locationPermission === 'denied' && (
+              <button
+                onClick={handleRefreshLocation}
+                disabled={isLoading}
+                className="w-full btn-secondary flex items-center justify-center space-x-2"
+              >
+                <RefreshCw size={16} />
+                <span>Try Again</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleSkipLocation}
+              className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              disabled={isLoading}
+            >
+              Skip and use default location (NYC)
+            </button>
+          </motion.div>
+        )}
 
         {/* Info */}
         <motion.div
@@ -113,6 +251,7 @@ const LocationPrompt = () => {
           transition={{ delay: 0.6 }}
         >
           <p>Your location is only used to show relevant issues and is not shared with others.</p>
+          <p className="mt-1">You can change this setting anytime in your preferences.</p>
         </motion.div>
       </motion.div>
     </div>

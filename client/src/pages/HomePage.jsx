@@ -20,11 +20,13 @@ import {
 } from 'lucide-react';
 import { useIssue } from '../contexts/IssueContext';
 import { useLocation } from '../contexts/LocationContext';
+import { useAuth } from '../contexts/AuthContext'; // Add this import
 import IssueCard from '../components/IssueCard';
 
 const HomePage = () => {
   const { filteredIssues, loading, getIssueStats } = useIssue();
   const { selectedLocation, radius } = useLocation();
+  const { user } = useAuth(); // Get user from auth context
   const stats = getIssueStats();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -133,12 +135,15 @@ const HomePage = () => {
                 Track and report civic issues in your community
               </p>
             </div>
-            <Link
-              to="/login"
-              className="bg-gradient-to-r from-red-500 to-orange-600 text-white px-6 py-3 rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:scale-105"
-            >
-              Login
-            </Link>
+            {/* Show login button only if user is not logged in */}
+            {!user && (
+              <Link
+                to="/login"
+                className="bg-gradient-to-r from-red-500 to-orange-600 text-white px-6 py-3 rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:scale-105"
+              >
+                Login
+              </Link>
+            )}
           </div>
         </motion.div>
 
@@ -377,4 +382,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;

@@ -8,17 +8,28 @@ const { protect } = require('../middleware/auth');
 // Middleware to check if user is admin
 const requireAdmin = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
+    // Check if user exists and has admin role
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+    
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Admin access required'
       });
     }
+    
     next();
   } catch (error) {
+    console.error('Admin verification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during admin verification'
+      message: 'Server error during admin verification',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -32,15 +43,18 @@ router.get('/issues', protect, requireAdmin, async (req, res) => {
     // Build query
     let query = {};
     
-    if (status && status !== 'all') {
+    // Only add status filter if it's provided and not empty
+    if (status && status !== '' && status !== 'all') {
       query.status = status;
     }
     
-    if (category && category !== 'all') {
+    // Only add category filter if it's provided and not empty
+    if (category && category !== '' && category !== 'all') {
       query.category = category;
     }
     
-    if (search) {
+    // Only add search filter if it's provided and not empty
+    if (search && search.trim() !== '') {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
@@ -67,7 +81,11 @@ router.get('/issues', protect, requireAdmin, async (req, res) => {
     }
 
     const issues = await Issue.find(query)
-      .populate('reporter', 'name email profilePicture')
+      .populate({
+        path: 'reportedBy',
+        select: 'name email profilePicture',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      })
       .sort(sortObject)
       .skip(skip)
       .limit(parseInt(limit))
@@ -92,7 +110,8 @@ router.get('/issues', protect, requireAdmin, async (req, res) => {
     console.error('Admin get issues error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching issues'
+      message: 'Server error while fetching issues',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -101,7 +120,11 @@ router.get('/issues', protect, requireAdmin, async (req, res) => {
 router.get('/issue/:id', protect, requireAdmin, async (req, res) => {
   try {
     const issue = await Issue.findById(req.params.id)
-      .populate('reporter', 'name email profilePicture');
+      .populate({
+        path: 'reportedBy',
+        select: 'name email profilePicture',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      });
 
     if (!issue) {
       return res.status(404).json({
@@ -119,7 +142,8 @@ router.get('/issue/:id', protect, requireAdmin, async (req, res) => {
     console.error('Admin get issue error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching issue details'
+      message: 'Server error while fetching issue details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -163,7 +187,7 @@ router.patch('/issues/:id/status', protect, requireAdmin, async (req, res) => {
     await issue.save();
 
     // Populate reporter info for response
-    await issue.populate('reporter', 'name email');
+    await issue.populate('reportedBy', 'name email');
 
     res.json({
       success: true,
@@ -273,7 +297,12 @@ router.get('/user/:id', protect, requireAdmin, async (req, res) => {
     // Get user's issues
     const userIssues = await Issue.find({ reportedBy: user._id })
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .populate({
+        path: 'reportedBy',
+        select: 'name email',
+        strictPopulate: false // Add this to fix the strictPopulate error
+      });
 
     res.json({
       success: true,
@@ -287,7 +316,8 @@ router.get('/user/:id', protect, requireAdmin, async (req, res) => {
     console.error('Admin get user error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching user details'
+      message: 'Server error while fetching user details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -498,7 +528,8 @@ router.get('/stats', protect, requireAdmin, async (req, res) => {
     console.error('Admin stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching admin statistics'
+      message: 'Server error while fetching admin statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -511,7 +542,11 @@ router.get('/export', protect, requireAdmin, async (req, res) => {
     let data;
     switch (type) {
       case 'issues':
-        data = await Issue.find().populate('reporter', 'name email');
+        data = await Issue.find().populate({
+          path: 'reportedBy',
+          select: 'name email',
+          strictPopulate: false // Add this to fix the strictPopulate error
+        });
         break;
       case 'users':
         data = await User.find().select('-password');
@@ -532,7 +567,8 @@ router.get('/export', protect, requireAdmin, async (req, res) => {
     console.error('Admin export error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while exporting data'
+      message: 'Server error while exporting data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

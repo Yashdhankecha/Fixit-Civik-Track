@@ -136,12 +136,16 @@ const issueSchema = new mongoose.Schema({
 
 // Virtual for vote count
 issueSchema.virtual('voteCount').get(function() {
-  return this.upvotes.length - this.downvotes.length;
+  // Handle cases where upvotes or downvotes might be undefined
+  const upvotesLength = (this.upvotes && Array.isArray(this.upvotes)) ? this.upvotes.length : 0;
+  const downvotesLength = (this.downvotes && Array.isArray(this.downvotes)) ? this.downvotes.length : 0;
+  return upvotesLength - downvotesLength;
 });
 
 // Virtual for comment count
 issueSchema.virtual('commentCount').get(function() {
-  return this.comments.length;
+  // Handle cases where comments might be undefined
+  return (this.comments && Array.isArray(this.comments)) ? this.comments.length : 0;
 });
 
 // Virtual for backward compatibility with frontend
@@ -188,17 +192,37 @@ issueSchema.statics.getUserIssues = function(userId, options = {}) {
   
   return this.find(query)
     .sort({ createdAt: -1 })
-    .populate('reportedBy', 'name email')
-    .populate('assignedTo', 'name email')
-    .populate('comments.user', 'name email')
-    .populate('upvotes', 'name')
-    .populate('downvotes', 'name');
+    .populate({
+      path: 'reportedBy',
+      select: 'name email',
+      strictPopulate: false // Add this to fix the strictPopulate error
+    })
+    .populate({
+      path: 'assignedTo',
+      select: 'name email',
+      strictPopulate: false // Add this to fix the strictPopulate error
+    })
+    .populate({
+      path: 'comments.user',
+      select: 'name email',
+      strictPopulate: false // Add this to fix the strictPopulate error
+    })
+    .populate({
+      path: 'upvotes',
+      select: 'name',
+      strictPopulate: false // Add this to fix the strictPopulate error
+    })
+    .populate({
+      path: 'downvotes',
+      select: 'name',
+      strictPopulate: false // Add this to fix the strictPopulate error
+    });
 };
 
 // Static method to get issue statistics
 issueSchema.statics.getUserStats = function(userId) {
   return this.aggregate([
-    { $match: { reportedBy: mongoose.Types.ObjectId(userId), isActive: true } },
+    { $match: { reportedBy: new mongoose.Types.ObjectId(userId), isActive: true } },
     {
       $group: {
         _id: null,

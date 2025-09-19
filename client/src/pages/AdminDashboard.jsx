@@ -74,16 +74,20 @@ const AdminDashboard = () => {
       console.log('Fetching issues...'); // Debug log
       setLoading(true); // Set loading to true when starting to fetch issues
       
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: 20,
-        status: filter !== 'all' ? filter : '',
-        search: searchTerm,
-        sortBy: sortBy
-      });
+      // Build params object with only non-empty values
+      const params = {};
+      if (currentPage) params.page = currentPage;
+      if (20) params.limit = 20;
+      if (filter && filter !== 'all') params.status = filter;
+      if (searchTerm && searchTerm.trim() !== '') params.search = searchTerm;
+      if (sortBy) params.sortBy = sortBy;
 
-      console.log('API call params:', params.toString()); // Debug log
-      const response = await api.get(`/api/admin/issues?${params}`);
+      // Convert to query string
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/admin/issues${queryString ? `?${queryString}` : ''}`;
+
+      console.log('API call url:', url); // Debug log
+      const response = await api.get(url);
       
       console.log('API response:', response.data); // Debug log
       
@@ -106,15 +110,19 @@ const AdminDashboard = () => {
       console.log('Fetching users...'); // Debug log
       setLoading(true); // Set loading to true when starting to fetch users
       
-      const params = new URLSearchParams({
-        page: userCurrentPage,
-        limit: 20,
-        role: userFilter !== 'all' ? userFilter : '',
-        search: userSearch
-      });
+      // Build params object with only non-empty values
+      const params = {};
+      if (userCurrentPage) params.page = userCurrentPage;
+      if (20) params.limit = 20;
+      if (userFilter && userFilter !== 'all') params.role = userFilter;
+      if (userSearch && userSearch.trim() !== '') params.search = userSearch;
 
-      console.log('API call params:', params.toString()); // Debug log
-      const response = await api.get(`/api/admin/users?${params}`);
+      // Convert to query string
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/admin/users${queryString ? `?${queryString}` : ''}`;
+
+      console.log('API call url:', url); // Debug log
+      const response = await api.get(url);
       
       console.log('API response:', response.data); // Debug log
       
